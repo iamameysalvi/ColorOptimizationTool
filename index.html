@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>ColorMap Optimization Tool</title>
+        <!-- SCRIPTS D3 + SLIDER -->
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <script src="https://d3js.org/d3.v4.min.js"></script>
+        <script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+        <script src="https://d3js.org/topojson.v2.min.js"></script>
+        <script src="https://d3js.org/d3-geo-projection.v2.min.js"></script>
+        <script src="design/src/colormap.js"></script>
+        <script src="design/src/colorramp.js"></script>
+        <script src="lib/colorname/c3.js"></script>
+        <script src="https://unpkg.com/d3-simple-slider"></script>
+        <script type="text/javascript" src="lib/colorname/analyzer.js"></script>
+        <link rel="stylesheet" href="d3.slider.css" />
+        <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+        <link rel="stylesheet" href="style.css">
+        <link href='https://unpkg.com/boxicons@2.0.7/css/boxicons.min.css' rel='stylesheet'>
+    </head>
+
+    <body class="no-select">
+        <!-- SIDEBAR -->
+        <div class="sidebar close">
+            <!-- MAIN LOGO + TITLE -->
+            <div class="logo">
+                <i class="material-icons">palette
+                    <span>Color Tool</span>
+                </i>
+                <span class="logo-name">COLOR TOOL</span>
+            </div>
+            <!-- SIDEBAR MENU -->
+            <div class="logo-menu">
+                <i class='bx bx-menu'>
+                    <span>Expand/Collapse Menu</span>
+                </i>
+                <span class="logo-menu">Collapse</span>
+            </div>
+            <!-- BG COLOR MODE -->
+            <div class="mode">
+                <i class="material-icons" onclick="toggleBGModeIcon()">dark_mode
+                    <span>Background Mode</span>
+                </i>
+                <label class="toggle"><input type="checkbox" id="BGMode" checked onclick="toggleBGMode()">
+                    <span class="logo-mode"></span>
+                </label>                
+            </div>
+
+            <!-- PANEL -->
+            <ul class="nav-links">
+                <!-- GENERATION -->
+                <li>
+                    <div class="icon-link">
+                        <a href="#">
+                            <i class="material-icons">add_circle
+                                <span>Generation Panel</span>
+                            </i>
+                            <span class="link-name">Generation Panel</span>
+                        </a>
+                        <i class='bx bxs-chevron-down arrow'></i>
+                    </div>
+                    <ul class="sub-menu">
+                        <li><a href="#">Sliders</a></li>
+                        <li><a href="#">ColorMap Info</a></li>
+                        <li><a href="#">Generate Button</a></li>
+                      </ul>
+                </li>
+                <!-- EDIT -->
+                <li>
+                    <div class="icon-link">
+                        <a href="#">
+                            <i class="material-icons">edit
+                                <span>Edit Panel</span>
+                            </i>
+                            <span class="link-name">Edit Panel</span>
+                        </a>
+                        <i class='bx bxs-chevron-down arrow'></i>
+                    </div>
+                </li>
+                <!-- BOOKMARKS -->
+                <li>
+                    <div class="icon-link">
+                        <a href="#">
+                            <i class="material-icons">bookmarks
+                                <span>Bookmarks</span>
+                            </i>
+                            <span class="link-name">Bookmarks</span>
+                        </a>
+                        <i class='bx bxs-chevron-down arrow'></i>
+                    </div>
+                </li>
+            </ul>
+        </div>
+
+        <script>
+            // SIDEBAR MENU EXPAND/COLLAPSE
+            var arrow = document.querySelectorAll(".arrow");
+            for (var i = 0; i < arrow.length; i++) {
+                arrow[i].addEventListener("click", (e)=>{
+                    // Selecting main parent of arrow
+                    var arrowParent = e.target.parentElement.parentElement;
+                    arrowParent.classList.toggle("showMenu");
+                });
+            }
+            // PANEL EXPAND/COLLAPSE
+            var sidebar = document.querySelector(".sidebar");
+            var sidebarBtn = document.querySelector(".bx-menu");
+            sidebarBtn.addEventListener("click", ()=>{
+                sidebar.classList.toggle("close");
+            });
+
+            // FUNCTIONS
+
+            // BG COLOR MODE TOGGLE
+            // Checkbox
+            function toggleBGMode() {
+                var BGMode = document.body;
+                BGMode.classList.toggle("light-mode");
+            }
+            // Icon
+            function toggleBGModeIcon() {
+                if(document.getElementById('BGMode').checked == true) {
+                    document.getElementById('BGMode').checked = false;
+                }
+                else {
+                    document.getElementById('BGMode').checked = true;
+                }
+                toggleBGMode();
+            }
+
+            // CREATE CMAP
+            var cmap = {};
+            for (var c=0; c<c3.color.length; ++c) 
+            {
+                var x = c3.color[c];
+                cmap[[x.l,x.a,x.b].join(",")] = c;
+            }
+
+            // CMAP IN LAB
+            function index(c) 
+            {
+                var x = d3.lab(c),
+                L = 5 * Math.round(x.l/5),
+                a = 5 * Math.round(x.a/5),
+                b = 5 * Math.round(x.b/5),
+                s = [L,a,b].join(",");
+                return cmap[s];
+            }
+
+            // RGB TO HEX
+            function rgbToHex(r, g, b) 
+            {
+                function componentToHex(c) {
+                    var hex = c.toString(16);
+                    return hex.length == 1 ? "0" + hex : hex;
+                }
+                return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
+            }
+
+            // CONVERT COLORS TO LAB
+            function fill_color(c)
+            {
+                var y = d3.lab(c);
+                return y.toString(16);
+            }
+
+            // COLOR NAMES AND DISTRIBUTION
+            function termDistribution(c)
+            {
+                var i = index(c);
+                var terms = c3.terms;
+                var dist = [];
+
+                for (var w=0; w<terms.length; w++) {
+                    dist.push({
+                        term: terms[w],
+                        p: c3.terms.prob(w, i)
+                    })
+                }
+                dist.sort(function(a, b) { return b.p-a.p});
+                return dist;
+            }
+
+            // COLOR NAMES
+            function nameDistribution(c)
+            {
+                var newDist = termDistribution(c).slice(0,25);
+                name_d = [newDist[0].term];
+                return name_d;
+            }
+
+            // SALIENCY
+            function nameSalience(c) 
+            {
+                var minE = -4.5;
+                var maxE = 0.0;
+                var i = index(c);
+                var ent = c3.color.entropy(i);
+                var salience = (ent - minE) / (maxE-minE);
+                return salience;
+            }
+
+            // NAME DIFFERENCE
+            function nameDifference(c1, c2) 
+            {
+                var i1 = index(c1);
+                var i2 = index(c2);
+                return 1 - c3.color.cosine(i1, i2);
+            }
+
+            // PERCEPTUAL (EUCLEDIAN) DISTANCE -> CIE76 DISTANCE
+            function cie76Distance(c1, c2) 
+            {
+                var i1 = index(c1);
+                var i2 = index(c2);
+                var col1 = c3.color[i1];
+                var col2 = c3.color[i2];
+                return Math.sqrt((col2.l - col1.l)**2 + (col2.a - col1.a)**2 + (col2.b - col1.b)**2);
+            }
+
+            // PERCEPTUAL DISTANCE -> CIE00 DISTANCE
+            function cie00Distance(c1, c2) {
+                var i1 = index(c1);
+                var i2 = index(c2);
+                var col1 = c3.color[i1];
+                var col2 = c3.color[i2];
+                var deg = 180/Math.PI;
+                var rad = Math.PI/180;
+
+                var c1 = Math.sqrt(col1.a**2 + col1.b**2);
+                var c2 = Math.sqrt(col2.a**2 + col2.b**2);
+
+                var delL = col2.l - col1.l;
+                var barL = (col1.l + col2.l)/2;
+                var barC = (c1 + c2)/2;
+
+                var dashA1 = col1.a + (col1.a/2) * (1 - Math.sqrt(barC ** 7/(barC ** 7 + 25 ** 7)));
+                var dashA2 = col2.a + (col2.a/2) * (1 - Math.sqrt(barC ** 7/(barC ** 7 + 25 ** 7)));
+
+                var dashC1 = Math.sqrt(dashA1 ** 2 + col1.b ** 2);
+                var dashC2 = Math.sqrt(dashA2 ** 2 + col2.b ** 2);
+                var dashC = (dashC1 + dashC2)/2;
+                var delC = dashC2 - dashC1;
+
+                var dashH1 = ((Math.atan2(col1.b,dashA1)) * deg + 360) % 360;
+                var dashH2 = ((Math.atan2(col2.b,dashA2)) * deg + 360) % 360;
+                var delh = Math.abs(dashH1 - dashH2) <= 180 ? dashH2 - dashH1: dashH2 <= dashH1 ? dashH2 - dashH1 + 360 : dashH2 - dashH1 - 360;
+                var delH = 2 * Math.sqrt(dashC1 * dashC2) * Math.sin((delh/2) * rad);
+                var barH = Math.abs(dashH1 - dashH2) <= 180 ? (dashH1 + dashH2)/2 : dashH1 + dashH2 < 360 ? (dashH1 + dashH2 + 360)/2 : (dashH1 + dashH2 - 360)/2;
+                var T = 1 - 0.17 * Math.cos((barH - 30) * rad) + 0.24 * Math.cos((2 * barH)* rad) + 0.32 * Math.cos((3 * barH + 6) * rad) - 0.20 * Math.cos((4 * barH - 63) * rad);
+
+                var sL = 1 + 0.015 * ((barL - 50) ** 2)/Math.sqrt(20 + (barL - 50) ** 2);
+                var sC = 1 + 0.045 * barC;
+                var sH = 1 + 0.015 * barC * T;
+
+                var RT = -2 * Math.sqrt((barC ** 7)/(barC ** 7 + 25 ** 7)) * Math.sin((60 * Math.exp(-(((barH - 275)/25) ** 2))) * rad); 
+                var delE00 = Math.sqrt(((delL/sL) ** 2) + ((delC/sC) ** 2) + ((delH/sH) ** 2) + (RT * (delC/sC) * (delH/sH)));
+
+                return delE00;
+            }
+
+            // INTERSECTION LINE AND POINT
+            function intersect(x1, y1, x2, y2, x3, y3, x4, y4, curr_lum) {
+                // Check if none of the lines are of length 0
+                if ((x1 === x2 && y1 === y2) || (x3 === x4 && y3 === y4)) {
+                    return false;
+                }
+                denominator = ((y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1))
+                // Lines are parallel
+                if (denominator === 0) {
+                    return false;
+                }
+                let ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denominator
+                let ub = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / denominator
+                // Check if the intersection is along the segments
+                if (ua < 0 || ua > 1 || ub < 0 || ub > 1) {
+                    return false
+                }
+                // Return an object with the x and y coordinates of the intersection
+                let x = x1 + ua * (x2 - x1)
+                let y = y1 + ua * (y2 - y1)
+                return {curr_lum, x, y}
+            }
+
+            // DRAW NAME DISTRIBUTION HISTOGRAM
+            function nameHist() {
+                var m = d3.select(this);
+                var rgb_val = m.attr("style").slice(6,-1);
+                var nameDist = termDistribution(rgb_val).slice(0, 25);
+
+                var BAR_W = 3 * 2;
+                var BAR_H = 20 * 2;
+                var svg_nameBars = d3.select("#names");
+                            
+                svg_nameBars.selectAll('g.extra').remove();
+                var g = svg_nameBars.append('g');
+                g.attr('class', 'extra')
+                 .attr('transform', 'translate(160, 370)');
+                        
+                (function(grp, nameDist, maxP) 
+                {
+                    var selection = grp.selectAll('rect.bar')
+                                        .data(nameDist)
+                                        .enter().append('rect');
+                    selection.attr('x', function(d, i) { return i * BAR_W * 2 })
+                             .attr('y', function(d) { return 2 * (1-d.p/maxP) * BAR_H })
+                             .attr('width', BAR_W * 2)
+                             .attr('height', function(d) { return 2 * (d.p/maxP) * BAR_H; })
+                             .attr("transform", "translate(0 -300)")
+                             .style('fill', function(d, i) { return i==0 ? rgb_val : d3.color(rgb_val).brighter(1) })
+                             .style('stroke', 'black')
+                             .attr("stroke-width", 0.25);
+
+                    grp.append('text')
+                        .attr('x', 0).attr('y', -305)
+                        .html('Colorname: '+ nameDist[0].term)
+                        .style('fill', 'black')
+                        .style('font-size', '12px')
+                        .attr('transform', 'translate(0,-5)')
+
+                })(g, nameDist, nameDist[0].p)
+            }
+
+            // GET CURRENT COLORMAP
+            function getColorMap() {
+                return this.colormap;
+            }
+
+            // RANDOM VALUE (INCLUSIVE)
+            function getRandom(min, max) {
+                min = Math.ceil(min);
+                max = Math.floor(max);
+                // Both min and max are inclusive
+                return Math.floor(Math.random() * (max - min + 1)) + min;
+            }
+        </script>
+
+    </body>
+</html>
