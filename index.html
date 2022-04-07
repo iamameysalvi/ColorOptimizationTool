@@ -110,8 +110,6 @@
                 sidebar.classList.toggle("close");
             });
 
-            // FUNCTIONS
-
             // BG COLOR MODE TOGGLE
             // Checkbox
             function toggleBGMode() {
@@ -129,6 +127,9 @@
                 toggleBGMode();
             }
 
+            //LOAD JSON
+            c3.load('lib/colorname/c3_data.json');
+            
             // CREATE CMAP
             var cmap = {};
             for (var c=0; c<c3.color.length; ++c) 
